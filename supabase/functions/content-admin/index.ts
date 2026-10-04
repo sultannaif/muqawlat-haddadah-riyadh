@@ -47,7 +47,7 @@ Deno.serve(async (request) => {
       excerpt: article.excerpt?.trim() || null, content_markdown: article.contentMarkdown?.trim(),
       primary_keyword: article.primaryKeyword?.trim(), secondary_keywords: article.secondaryKeywords ?? [],
       category: article.category?.trim() || null, status: article.status === "review" ? "review" : "draft",
-      featured_image_path: article.featuredImage || null, schema_faq: article.faq ?? [],
+      featured_image_path: article.featuredImage || null, featured_image_alt: article.featuredImageAlt?.trim() || null, schema_faq: article.faq ?? [],
       research_notes: article.researchNotes ?? {}, seo_score: article.seoScore ?? null,
       generated_by: article.generatedBy || "manual", updated_at: new Date().toISOString(),
     };
@@ -80,7 +80,7 @@ Deno.serve(async (request) => {
     const now = new Date().toISOString();
     const source = {
       slug: article.slug, title: article.title, metaDescription: article.meta_description, excerpt: article.excerpt,
-      contentMarkdown: article.content_markdown, primaryKeyword: article.primary_keyword, featuredImage: article.featured_image_path,
+      contentMarkdown: article.content_markdown, primaryKeyword: article.primary_keyword, featuredImage: article.featured_image_path, featuredImageAlt: article.featured_image_alt,
       faq: article.schema_faq, status: "published", publishedAt: article.published_at || now, updatedAt: now,
     };
     const filePath = `content/articles/${article.slug}.json`;
