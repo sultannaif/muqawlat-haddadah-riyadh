@@ -15,7 +15,7 @@ async function dataForSeoIdeas(seed: string) {
     headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
     body: JSON.stringify([{ keyword: seed, location_name: "Saudi Arabia", language_name: "Arabic", limit: 50 }]),
   });
-  if (!request.ok) throw new Error("تعذر جلب بيانات الكلمات المفتاحية.");
+  if (!request.ok) throw new Error(`تعذر جلب بيانات الكلمات المفتاحية من DataForSEO (${request.status}).`);
   const payload = await request.json();
   const items = asArray(payload?.tasks?.[0]?.result?.[0]?.items);
   return items.map((item: Record<string, unknown>) => {
@@ -43,9 +43,9 @@ async function writeDraft(keyword: string, volume: number) {
 
 Deno.serve(async (request) => {
   if (request.method !== "POST") return response({ error: "استخدم POST فقط." }, 405);
-  const expected = Deno.env.get("CONTENT_CRON_SECRET");
-  if (!expected || request.headers.get("X-Content-Cron-Secret") !== expected) return response({ error: "غير مخول." }, 401);
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+  const { data: authorized, error: authorizationError } = await supabase.rpc("is_valid_content_cron_secret", { candidate: request.headers.get("X-Content-Cron-Secret") });
+  if (authorizationError || !authorized) return response({ error: "غير مخول." }, 401);
   const run = await supabase.from("content_runs").insert({ run_type: "daily_research", status: "running", input: { target_city: "الرياض" }, started_at: new Date().toISOString() }).select().single();
   try {
     const seed = services[new Date().getUTCDate() % services.length];
