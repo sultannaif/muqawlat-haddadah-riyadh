@@ -26,17 +26,17 @@ async function dataForSeoIdeas(seed: string) {
 }
 
 async function writeDraft(keyword: string, volume: number) {
-  const apiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!apiKey) throw new Error("لم يُضبط مفتاح OpenAI بعد.");
+  const apiKey = Deno.env.get("OPENROUTER_API_KEY");
+  if (!apiKey) throw new Error("لم يُضبط مفتاح OpenRouter بعد.");
   const prompt = `أنت محرر محتوى محلي خبير في خدمات المقاولات بمدينة الرياض فقط. اكتب مسودة مقال عربية مفيدة وأصلية للعميل الذي يبحث عن خدمة، وليست حشواً أو ادعاءات أو أسعاراً مخترعة. الكلمة الأساسية: ${keyword}. حجم البحث المرجعي: ${volume}. أجب عن نية البحث بوضوح، واقترح متى يتواصل العميل لطلب معاينة أو تسعيرة. لا تذكر أنك ذكاء اصطناعي.\n\nأعد JSON صالحاً فقط بهذه المفاتيح: title (20-90 حرفاً)، slug (إنجليزي صغير بشرطات فقط)، metaDescription (70-180 حرفاً)، excerpt، contentMarkdown (700 كلمة عربية تقريباً بعناوين ## وقائمة عند الحاجة)، primaryKeyword، secondaryKeywords (مصفوفة)، faq (مصفوفة من 3 إلى 5 عناصر، في كل عنصر question وanswer)، seoScore (0-100).`;
-  const request = await fetch("https://api.openai.com/v1/responses", {
+  const request = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: Deno.env.get("OPENAI_MODEL") || "gpt-5-mini", input: prompt, store: false }),
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "HTTP-Referer": "https://muqawilriyadh.site", "X-OpenRouter-Title": "مقاول الرياض" },
+    body: JSON.stringify({ model: Deno.env.get("OPENROUTER_MODEL") || "~openai/gpt-latest", messages: [{ role: "user", content: prompt }], temperature: 0.35 }),
   });
-  if (!request.ok) throw new Error("تعذر إنشاء مسودة المقال من OpenAI.");
+  if (!request.ok) throw new Error("تعذر إنشاء مسودة المقال من النموذج المختار.");
   const result = await request.json();
-  const text = result.output_text || asArray(result.output).flatMap((entry: Record<string, unknown>) => asArray(entry.content)).find((content: Record<string, unknown>) => content.type === "output_text")?.text;
+  const text = result.choices?.[0]?.message?.content;
   if (!text) throw new Error("لم يصل نص المقال من OpenAI.");
   return JSON.parse(text.replace(/^```json\s*|\s*```$/g, ""));
 }
