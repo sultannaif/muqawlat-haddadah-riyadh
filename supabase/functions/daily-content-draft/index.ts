@@ -13,11 +13,12 @@ async function dataForSeoIdeas(seed: string) {
   const request = await fetch("https://api.dataforseo.com/v3/dataforseo_labs/google/keyword_suggestions/live", {
     method: "POST",
     headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
-    body: JSON.stringify([{ keyword: seed, location_name: "Saudi Arabia", language_name: "Arabic", limit: 50 }]),
+    body: JSON.stringify([{ keyword: seed, location_name: "Saudi Arabia", language_name: "Arabic", include_seed_keyword: true, limit: 50 }]),
   });
   if (!request.ok) throw new Error(`تعذر جلب بيانات الكلمات المفتاحية من DataForSEO (${request.status}).`);
   const payload = await request.json();
-  const items = asArray(payload?.tasks?.[0]?.result?.[0]?.items);
+  const result = payload?.tasks?.[0]?.result?.[0] ?? {};
+  const items = [...asArray(result.items), ...asArray(result.seed_keyword_data)];
   return items.map((item: Record<string, unknown>) => {
     const data = (item.keyword_data ?? item) as Record<string, unknown>;
     const info = (data.keyword_info ?? {}) as Record<string, unknown>;
@@ -31,7 +32,7 @@ async function writeDraft(keyword: string, volume: number) {
   const prompt = `أنت محرر محتوى محلي خبير في خدمات المقاولات بمدينة الرياض فقط. اكتب مسودة مقال عربية مفيدة وأصلية للعميل الذي يبحث عن خدمة، وليست حشواً أو ادعاءات أو أسعاراً مخترعة. الكلمة الأساسية: ${keyword}. حجم البحث المرجعي: ${volume}. أجب عن نية البحث بوضوح، واقترح متى يتواصل العميل لطلب معاينة أو تسعيرة. لا تذكر أنك ذكاء اصطناعي.\n\nأعد JSON صالحاً فقط بهذه المفاتيح: title (20-90 حرفاً)، slug (إنجليزي صغير بشرطات فقط)، metaDescription (70-180 حرفاً)، excerpt، contentMarkdown (700 كلمة عربية تقريباً بعناوين ## وقائمة عند الحاجة)، primaryKeyword، secondaryKeywords (مصفوفة)، faq (مصفوفة من 3 إلى 5 عناصر، في كل عنصر question وanswer)، seoScore (0-100).`;
   const request = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "HTTP-Referer": "https://muqawilriyadh.site", "X-OpenRouter-Title": "مقاول الرياض" },
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "HTTP-Referer": "https://muqawilriyadh.site", "X-OpenRouter-Title": "Muqawil Riyadh" },
     body: JSON.stringify({ model: Deno.env.get("OPENROUTER_MODEL") || "~openai/gpt-latest", messages: [{ role: "user", content: prompt }], temperature: 0.35 }),
   });
   if (!request.ok) throw new Error("تعذر إنشاء مسودة المقال من النموذج المختار.");
@@ -50,8 +51,7 @@ Deno.serve(async (request) => {
   try {
     const seed = services[new Date().getUTCDate() % services.length];
     const ideas = await dataForSeoIdeas(seed);
-    const candidate = ideas.sort((a: { volume: number; competition: number }, b: { volume: number; competition: number }) => (b.volume - b.competition) - (a.volume - a.competition))[0];
-    if (!candidate) throw new Error("لم تظهر فرصة مناسبة لخدمات الرياض اليوم.");
+    const candidate = ideas.sort((a: { volume: number; competition: number }, b: { volume: number; competition: number }) => (b.volume - b.competition) - (a.volume - a.competition))[0] ?? { keyword: seed, volume: 0, competition: 100 };
     const { data: duplicate } = await supabase.from("content_opportunities").select("id").eq("keyword", candidate.keyword).eq("status", "used").limit(1);
     if (duplicate?.length) throw new Error("الموضوع المختار منشور سابقاً؛ سيجرب النظام فرصة أخرى في التشغيل القادم.");
     const score = Math.min(100, Math.round(Math.log10(candidate.volume + 1) * 25 + (100 - candidate.competition) * 0.35));
