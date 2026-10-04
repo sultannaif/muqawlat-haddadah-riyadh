@@ -42,6 +42,7 @@
             <label>أسئلة شائعة (JSON اختياري)<textarea id="faq" rows="5" placeholder='[{"question":"...","answer":"..."}]'></textarea></label>
             <label>صورة الغلاف<input id="image" type="file" accept="image/jpeg,image/png,image/webp"><small>JPG أو PNG أو WebP، حتى 5MB. أضف وصفاً واضحاً للصورة داخل المقال عند مراجعتها.</small></label>
             <input id="featured-image" type="hidden">
+            <label>وصف الصورة البديل Alt text<input id="featured-image-alt" maxlength="125" placeholder="مثال: مظلة سيارات حديدية أمام منزل في الرياض"><small>صف ما يظهر في الصورة بوضوح، ولا تكرر الكلمات المفتاحية بلا حاجة.</small></label>
             <img id="image-preview" hidden alt="معاينة صورة الغلاف">
             <div class="actions"><button id="save" type="submit">حفظ كمسودة</button><button id="publish" type="button" class="publish">نشر بعد المراجعة</button></div>
           </form>
@@ -71,13 +72,13 @@
     const values = () => ({
       id: $('#article-id').value || undefined, title: $('#title').value, slug: $('#slug').value, primaryKeyword: $('#primary-keyword').value,
       metaDescription: $('#meta-description').value, excerpt: $('#excerpt').value, contentMarkdown: $('#content-markdown').value,
-      featuredImage: $('#featured-image').value || null, faq: $('#faq').value.trim() ? JSON.parse($('#faq').value) : [], generatedBy: 'admin',
+      featuredImage: $('#featured-image').value || null, featuredImageAlt: $('#featured-image-alt').value, faq: $('#faq').value.trim() ? JSON.parse($('#faq').value) : [], generatedBy: 'admin',
     });
     const resetForm = () => { $('#article-form').reset(); $('#article-id').value = ''; $('#featured-image').value = ''; $('#image-preview').hidden = true; $('#form-heading').textContent = 'مسودة جديدة'; };
     function loadArticle(article) {
       $('#article-id').value = article.id; $('#title').value = article.title; $('#slug').value = article.slug; $('#primary-keyword').value = article.primary_keyword;
       $('#meta-description').value = article.meta_description; $('#excerpt').value = article.excerpt || ''; $('#content-markdown').value = article.content_markdown;
-      $('#faq').value = JSON.stringify(article.schema_faq || [], null, 2); $('#featured-image').value = article.featured_image_path || ''; $('#form-heading').textContent = article.status === 'published' ? 'مقال منشور' : 'مراجعة المسودة';
+      $('#faq').value = JSON.stringify(article.schema_faq || [], null, 2); $('#featured-image').value = article.featured_image_path || ''; $('#featured-image-alt').value = article.featured_image_alt || ''; $('#form-heading').textContent = article.status === 'published' ? 'مقال منشور' : 'مراجعة المسودة';
       if (article.featured_image_path) { $('#image-preview').src = article.featured_image_path; $('#image-preview').hidden = false; }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
