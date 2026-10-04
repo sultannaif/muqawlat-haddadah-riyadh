@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>إدارة المحتوى | مقاول الرياض</title>
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+  <main class="shell">
+    <section id="login" class="card login-card">
+      <p class="eyebrow">مقاول الرياض</p>
+      <h1>لوحة إدارة المحتوى</h1>
+      <p>تسجيل دخول المالك فقط. المقالات لا تُنشر إلا بعد اعتمادك.</p>
+      <form id="login-form">
+        <label>البريد الإلكتروني<input id="email" type="email" autocomplete="email" required></label>
+        <label>كلمة المرور<input id="password" type="password" autocomplete="current-password" required></label>
+        <button>دخول</button>
+      </form>
+      <p id="login-message" class="message" aria-live="polite"></p>
+    </section>
+
+    <section id="dashboard" hidden>
+      <header class="topbar"><div><p class="eyebrow">إدارة المحتوى · الرياض فقط</p><h1>مسودات المقالات</h1></div><button id="logout" class="quiet">تسجيل الخروج</button></header>
+      <p id="dashboard-message" class="message" aria-live="polite"></p>
+      <section class="card notice"><strong>سير العمل:</strong> يصل البحث أو المسودة هنا، تعدلها وتضيف الصورة، ثم تضغط نشر. النشر ينشئ صفحة ثابتة ويبدأ نشر Cloudflare تلقائياً عبر GitHub.</section>
+      <div class="layout">
+        <section class="card">
+          <h2>المسودات</h2>
+          <div id="article-list" class="article-list"><p>يتم تحميل المسودات…</p></div>
+        </section>
+        <section class="card editor">
+          <div class="editor-title"><h2 id="form-heading">مسودة جديدة</h2><button id="new-draft" class="quiet" type="button">مسودة جديدة</button></div>
+          <form id="article-form">
+            <input id="article-id" type="hidden">
+            <label>عنوان المقال<input id="title" required minlength="20" maxlength="90"></label>
+            <div class="two"><label>الرابط المختصر بالإنجليزية<input id="slug" required pattern="[a-z0-9-]+"></label><label>الكلمة المفتاحية الأساسية<input id="primary-keyword" required></label></div>
+            <label>وصف ميتا<input id="meta-description" required minlength="70" maxlength="180"><small>بين 70 و180 حرفاً.</small></label>
+            <label>مقدمة مختصرة<input id="excerpt"></label>
+            <label>نص المقال بصيغة Markdown<textarea id="content-markdown" required rows="16" placeholder="## عنوان فرعي&#10;&#10;اكتب الفقرة هنا…"></textarea></label>
+            <label>أسئلة شائعة (JSON اختياري)<textarea id="faq" rows="5" placeholder='[{"question":"...","answer":"..."}]'></textarea></label>
+            <label>صورة الغلاف<input id="image" type="file" accept="image/jpeg,image/png,image/webp"><small>JPG أو PNG أو WebP، حتى 5MB. أضف وصفاً واضحاً للصورة داخل المقال عند مراجعتها.</small></label>
+            <input id="featured-image" type="hidden">
+            <img id="image-preview" hidden alt="معاينة صورة الغلاف">
+            <div class="actions"><button id="save" type="submit">حفظ كمسودة</button><button id="publish" type="button" class="publish">نشر بعد المراجعة</button></div>
+          </form>
+        </section>
+      </div>
+    </section>
+  </main>
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+    const projectUrl = 'https://ydjbxpdwwlepbxciulmr.supabase.co';
+    const publishableKey = 'sb_publishable_6CjySKeS3s0sD--BxYaGdg_wScRdvrq';
+    const apiUrl = `${projectUrl}/functions/v1/content-admin`;
+    const supabase = createClient(projectUrl, publishableKey);
+    const $ = (selector) => document.querySelector(selector);
+    const login = $('#login'), dashboard = $('#dashboard'), loginMessage = $('#login-message'), dashboardMessage = $('#dashboard-message');
+    const message = (element, text, error = false) => { element.textContent = text; element.classList.toggle('error', error); };
+
+    async function api(path = '', options = {}) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('انتهت الجلسة، سجل الدخول مرة أخرى.');
+      const response = await fetch(`${apiUrl}${path}`, { ...options, headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json', ...(options.headers || {}) } });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'تعذر تنفيذ الطلب.');
+      return result;
+    }
+
+    const values = () => ({
+      id: $('#article-id').value || undefined, title: $('#title').value, slug: $('#slug').value, primaryKeyword: $('#primary-keyword').value,
+      metaDescription: $('#meta-description').value, excerpt: $('#excerpt').value, contentMarkdown: $('#content-markdown').value,
+      featuredImage: $('#featured-image').value || null, faq: $('#faq').value.trim() ? JSON.parse($('#faq').value) : [], generatedBy: 'admin',
+    });
+    const resetForm = () => { $('#article-form').reset(); $('#article-id').value = ''; $('#featured-image').value = ''; $('#image-preview').hidden = true; $('#form-heading').textContent = 'مسودة جديدة'; };
+    function loadArticle(article) {
+      $('#article-id').value = article.id; $('#title').value = article.title; $('#slug').value = article.slug; $('#primary-keyword').value = article.primary_keyword;
+      $('#meta-description').value = article.meta_description; $('#excerpt').value = article.excerpt || ''; $('#content-markdown').value = article.content_markdown;
+      $('#faq').value = JSON.stringify(article.schema_faq || [], null, 2); $('#featured-image').value = article.featured_image_path || ''; $('#form-heading').textContent = article.status === 'published' ? 'مقال منشور' : 'مراجعة المسودة';
+      if (article.featured_image_path) { $('#image-preview').src = article.featured_image_path; $('#image-preview').hidden = false; }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    async function refreshArticles() {
+      try {
+        const { articles } = await api('?action=articles');
+        $('#article-list').innerHTML = articles.length ? articles.map((article) => `<button class="article-item" data-id="${article.id}"><strong>${article.title}</strong><span>${article.status === 'published' ? 'منشور' : 'مسودة'} · ${article.primary_keyword}</span></button>`).join('') : '<p>لا توجد مسودات حتى الآن.</p>';
+        document.querySelectorAll('.article-item').forEach((button) => button.addEventListener('click', () => loadArticle(articles.find((article) => article.id === button.dataset.id))));
+      } catch (error) { message(dashboardMessage, error.message, true); }
+    }
+    async function showDashboard() { login.hidden = true; dashboard.hidden = false; await refreshArticles(); }
+    $('#login-form').addEventListener('submit', async (event) => { event.preventDefault(); message(loginMessage, 'جارٍ التحقق…'); const { error } = await supabase.auth.signInWithPassword({ email: $('#email').value, password: $('#password').value }); if (error) return message(loginMessage, error.message, true); showDashboard(); });
+    $('#logout').addEventListener('click', async () => { await supabase.auth.signOut(); dashboard.hidden = true; login.hidden = false; });
+    $('#new-draft').addEventListener('click', resetForm);
+    $('#image').addEventListener('change', async (event) => { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async () => { try { message(dashboardMessage, 'جارٍ رفع الصورة…'); const result = await api('', { method: 'POST', body: JSON.stringify({ action: 'uploadImage', image: { base64: reader.result.split(',')[1], type: file.type } }) }); $('#featured-image').value = result.url; $('#image-preview').src = result.url; $('#image-preview').hidden = false; message(dashboardMessage, 'تم رفع الصورة.'); } catch (error) { message(dashboardMessage, error.message, true); } }; reader.readAsDataURL(file); });
+    $('#article-form').addEventListener('submit', async (event) => { event.preventDefault(); try { message(dashboardMessage, 'جارٍ حفظ المسودة…'); const result = await api('', { method: 'POST', body: JSON.stringify({ action: 'saveDraft', article: values() }) }); loadArticle(result.article); await refreshArticles(); message(dashboardMessage, 'تم حفظ المسودة.'); } catch (error) { message(dashboardMessage, error.message, true); } });
+    $('#publish').addEventListener('click', async () => { try { const article = values(); if (!article.id) throw new Error('احفظ المسودة أولاً.'); if (!confirm('هل راجعت المقال والصور ومستعد لنشره؟')) return; message(dashboardMessage, 'جارٍ إرسال المقال للنشر…'); const result = await api('', { method: 'POST', body: JSON.stringify({ action: 'publish', articleId: article.id }) }); loadArticle(result.article); await refreshArticles(); message(dashboardMessage, 'تم إرسال المقال إلى GitHub. سيبني Cloudflare الصفحة خلال دقائق.'); } catch (error) { message(dashboardMessage, error.message, true); } });
+    supabase.auth.getSession().then(({ data: { session } }) => { if (session) showDashboard(); });
+  </script>
+</body>
+</html>
+
